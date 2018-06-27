@@ -139,11 +139,15 @@ def compute_quantization(samples, init_assignment_pts, epsilon=1e-5):
 
 def quantize(raw_vals, assignment_vals, return_cluster_assignments=False):
   if raw_vals.ndim == 1:
-    bin_edges = (assignment_vals[:-1] + assignment_vals[1:]) / 2
-    c_assignments = np.digitize(raw_vals, bin_edges)
-    #^ This is more efficient than our vector quantization because here we use
-    #  sorted bin edges and the assignment complexity is (I believe)
-    #  logarithmic in the number of intervals.
+    if len(assignment_vals) == 1:
+      # everything gets assigned to this point
+      c_assignments = np.zeros((len(raw_vals),), dtype='int')
+    else:
+      bin_edges = (assignment_vals[:-1] + assignment_vals[1:]) / 2
+      c_assignments = np.digitize(raw_vals, bin_edges)
+      #^ This is more efficient than our vector quantization because here we use
+      #  sorted bin edges and the assignment complexity is (I believe)
+      #  logarithmic in the number of intervals.
   else:
     c_assignments = np.argmin(scipy_distance(raw_vals, assignment_vals,
                                              metric='euclidean'), axis=1)
@@ -207,8 +211,3 @@ def calculate_assignment_probabilites(assignments, num_clusters):
   assignment_counts, _ = np.histogram(assignments, hist_b_edges)
   empirical_density = assignment_counts / np.sum(assignment_counts)
   return empirical_density
-
-#
-# def top_k(vals, k):
-#   top_k_unsrt = np.argpartition(vals, -1*k)[-1*k:]
-#   return top_k_unsrt[np.argsort(vals[top_k_unsrt])[::-1]]
