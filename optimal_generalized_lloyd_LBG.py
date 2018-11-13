@@ -1,12 +1,13 @@
 """
-An implementation of the 'optimal' generalized Lloyd alg
+An implementation of the 'optimal' generalized Lloyd algorithm
 
-This is sometimes called 'Entropy Constrained Vector Quantization'. I think
-it's a bit of a misnomer because the nonoptimal LBG alg still has an implicit
-entropy constraint - the number of bins. Instead, here our fitting procedure
-takes into account the codeword lengths, which is what makes it 'optimal' and
-the way this is done a lagrange multiplier which can be interpreted as
-enforcing an entropy constraint on the solution.
+This is sometimes called 'Entropy Constrained Vector Quantization'. Instead
+of trying to find assignment points that just minimize the mean-squared error
+of the quantization, our fitting procedure also takes into account the codeword
+lengths, via a lagrange multiplier which can be interpreted as (loosely)
+enforcing an entropy constraint on the solution. This extra sensitivity of the
+quantization to the actual entropy of the resulting code is what makes this
+method 'optimal'.
 
 This is currently implemented only for the 2-norm-squared error distortion
 metric but is fully general for p-norms and the general quadratic form
@@ -161,9 +162,38 @@ def compute_quantization(samples, init_assignment_pts,
   return assignment_pts, quantized_code, MSE, shannon_entropy
 
 
-def quantize(raw_vals, assignment_vals, codeword_lengths, l_weight,
-             return_cluster_assignments=False):
+def quantize(raw_vals, assignment_vals, codeword_lengths,
+             l_weight, return_cluster_assignments=False):
+  """
+  Makes a quantization according to BOTH nearest neighbor and resulting code len
 
+  We could assign the raw values to their nearest neighbor in assignment_vals,
+  but that would ignore the resulting entropy of the assignment. Assuming that
+  we use an optimal lossless code (Huffman, Arithmetic, etc.) for the
+  assignments, the expected length of the code is arbitrarily close to the
+  entropy. Instead, we will minimize a function which includes not only the
+  distance to assignment points, but also has a lagrange multiplier term
+  that accounts for the codeword length.
+
+  Parameters
+  ----------
+  raw_vals : ndarray (d, n) or (d,)
+      The raw values to be quantized according to the assignment points and lens
+  assignment_vals : ndarray (m, n) or (m,)
+      The allowable assignment values. Every raw value will be assigned one
+      of these values instead.
+  codeword_lengths : ndarray (m,)
+      The expected lengths of the codewords for each of the assignment vals.
+  l_weight : float
+      A value for the lagrange multiplier used in the augmented distance we use
+      to make the quantization
+  return_cluster_assignments : bool, optional
+      Our default behavior is to just return the actual quantized values
+      (determined by the assingment points). If this parameter is true,
+      also return the index of assigned point for each of the rows in
+      raw_vals (this is the identifier of which codeword was used to quantize
+      this datapoint). Default False.
+  """
   assert len(assignment_vals) == len(codeword_lengths)
   # I could not easily find an implementation of nearest neighbors that would
   # use a generalized cost function rather than the l2-norm-squared to assign
@@ -188,10 +218,27 @@ def greedy_partition(raw_vals, a_vals, c_lengths, l_weight):
   """
   Partition the data according to the assignment values.
 
+  This is just a wrapper on the quantize() function above which lets us
+  drop clusters when there is a quantization bin with no data in it.
   If there are clusters with no data, we will DROP these clusters. According
-  to Chou et al. (1989) the splitting procedure we used before is not
-  well motivated in this case and we will pay no coding cost by
-  removing this cluster, so that will be our policy here.
+  to Chou et al. (1989) the splitting procedure we use in the non-optimal LBG
+  case is not well-motivated here because we will pay no coding cost by
+  removing this cluster. Therefore our policy will be precisely that, to remove
+  any clusters that have no data. We call this the greedy partition strategy.
+
+  Parameters
+  ----------
+  raw_vals : ndarray (d, n) or (d,)
+      The raw values to be quantized according to the assignment points
+  a_vals : ndarray (m, n) or (m,)
+      The *initial* allowable assignment values. These may change according to
+      whether quantizing based on these initial points results in empty bins.
+  c_lengths : ndarray (m, )
+      The (precomputed) codeword lengths for each of the assignment points.
+      These will have been computed purely based on the empirical entropy of the
+      quantized code from the previous iteration of the algorithm.
+  l_weight : float
+      The value of the lagrange multiplier in the augmented cost function
   """
   fresh_a_vals = np.copy(a_vals)
   fresh_c_lengths = np.copy(c_lengths)
@@ -217,6 +264,9 @@ def greedy_partition(raw_vals, a_vals, c_lengths, l_weight):
 
 
 def calculate_assignment_probabilites(assignments, num_clusters):
+  """
+  Just counts the occurence of each assignment to get an empirical pdf estimate
+  """
   temp = np.arange(num_clusters)
   hist_b_edges = np.hstack([-np.inf, (temp[:-1] + temp[1:]) / 2, np.inf])
   assignment_counts, _ = np.histogram(assignments, hist_b_edges)

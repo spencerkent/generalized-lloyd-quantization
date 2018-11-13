@@ -1,5 +1,5 @@
 """
-An implementation of the generalized Lloyd alg for vector quantization
+An implementation of the generalized Lloyd algorithm for vector quantization
 
 This is currently implemented only for the 2-norm-squared error distortion
 metric but is fully general for p-norms and the general quadratic form
@@ -138,6 +138,23 @@ def compute_quantization(samples, init_assignment_pts, epsilon=1e-5):
 
 
 def quantize(raw_vals, assignment_vals, return_cluster_assignments=False):
+  """
+  Makes a quantization according to the nearest neighbor in assignment_vals
+
+  Parameters
+  ----------
+  raw_vals : ndarray (d, n) or (d,)
+      The raw values to be quantized according to the assignment points
+  assignment_vals : ndarray (m, n) or (m,)
+      The allowable assignment values. Every raw value will be assigned one
+      of these values instead.
+  return_cluster_assignments : bool, optional
+      Our default behavior is to just return the actual quantized values
+      (determined by the assingment points). If this parameter is true,
+      also return the index of assigned point for each of the rows in
+      raw_vals (this is the identifier of which codeword was used to quantize
+      this datapoint). Default False.
+  """
   if raw_vals.ndim == 1:
     if len(assignment_vals) == 1:
       # everything gets assigned to this point
@@ -168,10 +185,20 @@ def quantize(raw_vals, assignment_vals, return_cluster_assignments=False):
 
 def iterative_partition(raw_vals, a_vals):
   """
-  Partition the data according to the assignment values.
+  Partitions the data according to the assignment values.
 
-  If there are clusters with no data, we reallocate the corresponding assignment
-  point by splitting the most populous bin into two
+  This is just a wrapper on the quantize() function above which lets us
+  reallocate assignment points when there are quantization bins with no data in
+  them. Following the advice of Linde et al. (1980), our convention is to
+  split the most populous bin into two.
+
+  Parameters
+  ----------
+  raw_vals : ndarray (d, n) or (d,)
+      The raw values to be quantized according to the assignment points
+  a_vals : ndarray (m, n) or (m,)
+      The *initial* allowable assignment values. These may change according to
+      whether quantizing based on these initial points results in empty bins.
   """
   fresh_a_vals = np.copy(a_vals)
   while True:
@@ -191,8 +218,8 @@ def iterative_partition(raw_vals, a_vals):
       else:
         offset_sz = fresh_a_vals.shape[1]
         max_offset = 0.01
-        #^ each component has variance 1 so a maximum perturbation of
-        #  0.01 seems reasonable...
+        #^ each component has variance 1 due to our normalization in the calling
+        # function so a maximum perturbation of 0.01 seems reasonable...
       zero_prob_bins = np.where(cword_probs == 0)
       for zero_prob_bin in zero_prob_bins:
         rand_offset = np.random.uniform(-1*max_offset, max_offset,
@@ -200,12 +227,15 @@ def iterative_partition(raw_vals, a_vals):
         fresh_a_vals[zero_prob_bin] = (fresh_a_vals[most_probable] +
                                        rand_offset)
       if raw_vals.ndim == 1:
-        # we have to resort the assignment points b/c our 1d partition method
+        # we have to re-sort the assignment points b/c our 1d partition method
         # requires it
         fresh_a_vals = np.sort(fresh_a_vals)
 
 
 def calculate_assignment_probabilites(assignments, num_clusters):
+  """
+  Just counts the occurence of each assignment to get an empirical pdf estimate
+  """
   temp = np.arange(num_clusters)
   hist_b_edges = np.hstack([-np.inf, (temp[:-1] + temp[1:]) / 2, np.inf])
   assignment_counts, _ = np.histogram(assignments, hist_b_edges)
