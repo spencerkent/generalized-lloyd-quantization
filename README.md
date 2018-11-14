@@ -10,6 +10,12 @@ At some point I may add an implementation in a GPU computing framework so that i
 easily for vector quantization in high dimensions, but for now this is an implementation that
 should still be usable for a reasonable number of dimensions.
 
+## Dependencies
+* numpy
+* scipy
+* matplotlib
+* [hdmedians](https://github.com/daleroberts/hdmedians)
+
 ## Example
 Usage can be inferred from the example found in the demo/ folder. In this particular case we 
 generate samples of a 2D multivariate random variable. We can either quantize each coefficient

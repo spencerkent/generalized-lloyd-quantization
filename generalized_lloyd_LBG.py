@@ -51,9 +51,10 @@ def compute_quantization(samples, init_assignment_pts, epsilon=1e-5):
   -------
   assignment_pts : ndarray (m, n) or (m,)
       The converged assignment points
-  quantized_samples : ndarray (d, n) or (d,)
-      The quantized values of the samples. Each should be a n-dimensional
-      floating point vector contained in the set of assignment points
+  cluster_assignments : ndarray (d, )
+      For each sample, the index of the codeword to which Lloyd quantization
+      assigns this datapoint. We can compute the actual quantized values outside
+      this function by invoking `assignment_pts[cluster_assignments]`
   MSE : float
       The mean squared error (the mean l2-normed-squared to be precise) for the
       returned quantization.
@@ -121,8 +122,8 @@ def compute_quantization(samples, init_assignment_pts, epsilon=1e-5):
 
   if samples.ndim != 1:
     # we want to return the code and quantization in the original space
-    quantized_code = quantized_code * saved_component_stds[None, :]
     assignment_pts = assignment_pts * saved_component_stds[None, :]
+    quantized_code = assignment_pts[cluster_assignments]
     samples = samples * saved_component_stds[None, :]
     # compute the MSE of the quantized code in the original space
     MSE = np.mean(np.sum(np.square(quantized_code - samples), axis=1))
@@ -134,7 +135,7 @@ def compute_quantization(samples, init_assignment_pts, epsilon=1e-5):
   assert np.isclose(np.sum(cword_probs), 1.0)
   shannon_entropy = -1 * np.sum(cword_probs * np.log2(cword_probs))
 
-  return assignment_pts, quantized_code, MSE, shannon_entropy
+  return assignment_pts, cluster_assignments, MSE, shannon_entropy
 
 
 def quantize(raw_vals, assignment_vals, return_cluster_assignments=False):
@@ -183,6 +184,8 @@ def quantize(raw_vals, assignment_vals, return_cluster_assignments=False):
     return assignment_vals[c_assignments]
 
 
+#TODO: experiment with whether splitting the bins as we do below is the smartest
+#      thing for us to do
 def iterative_partition(raw_vals, a_vals):
   """
   Partitions the data according to the assignment values.
