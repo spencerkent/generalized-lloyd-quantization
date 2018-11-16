@@ -67,10 +67,6 @@ def compute_quantization(samples, binwidth, placement_scheme='on_mode'):
         'Cannot accurately estimate the mode of the ' +
         'distribution with so few samples. Try another placement scheme')
 
-  max_val_each_dim = np.max(samples, axis=0)
-  min_val_each_dim = np.min(samples, axis=0)
-  num_a_pts_each_dim = np.ceil(
-      (max_val_each_dim - min_val_each_dim) / binwidth).astype('int')
   if placement_scheme == 'on_mode':
     if samples.ndim == 1:
       # numpy's histogramdd() is slow on 1d samples for some reason so we
@@ -107,8 +103,13 @@ def compute_quantization(samples, binwidth, placement_scheme='on_mode'):
   else:
     raise KeyError('Unrecognized placement scheme ' + placement_scheme)
 
+  max_val_each_dim = np.max(samples, axis=0)
+  min_val_each_dim = np.min(samples, axis=0)
+  assert np.all(anchored_pt < max_val_each_dim)
+  assert np.all(anchored_pt >= min_val_each_dim)
   num_pts_lower = np.floor((anchored_pt - min_val_each_dim) / binwidth)
-  num_pts_higher = num_a_pts_each_dim - num_pts_lower - 1
+  num_pts_higher = np.floor((max_val_each_dim - anchored_pt) / binwidth)
+  num_a_pts_each_dim = num_pts_lower + num_pts_higher + 1
   if samples.ndim == 1:
     assignment_pts = np.linspace(anchored_pt - num_pts_lower * binwidth,
                                  anchored_pt + num_pts_higher * binwidth,
@@ -117,8 +118,8 @@ def compute_quantization(samples, binwidth, placement_scheme='on_mode'):
     # careful, this can get huge in high dimensions.
     assignment_pts = np.array(list(cartesian_product(
       *[np.linspace(anchored_pt[x] - num_pts_lower[x] * binwidth[x],
-                   anchored_pt[x] + num_pts_higher[x] * binwidth[x],
-                   num_a_pts_each_dim[x]) for x in range(samples.shape[1])])))
+                    anchored_pt[x] + num_pts_higher[x] * binwidth[x],
+                    num_a_pts_each_dim[x]) for x in range(samples.shape[1])])))
 
   quantized_code, cluster_assignments = quantize(samples, assignment_pts, True)
 
