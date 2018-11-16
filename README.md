@@ -24,8 +24,8 @@ that not only are significant gains achieved by using the entropy-rate-optimal v
 algorithm, but that by quantizing the coefficients jointly, we also get a gain in coding 
 efficiency.
 
-![alt text](demo/plots/composite_demo_fig.png)
-![alt text](demo/plots/rd_performance_example.png)
+![alt text](generalized_lloyd_quantization/demo/plots/composite_demo_fig.png)
+![alt text](generalized_lloyd_quantization/demo/plots/rd_performance_example.png)
 
 ### Authors
 Spencer Kent
