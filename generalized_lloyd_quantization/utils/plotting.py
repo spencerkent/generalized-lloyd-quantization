@@ -131,10 +131,11 @@ def plot_1d_and_2d_assignments(assignment_pts, orig_samps, assignment_inds,
   shannon_entropy = -1 * np.sum(empirical_code_PMF[nonzero_prob_pts] *
                                 np.log2(empirical_code_PMF[nonzero_prob_pts]))
   log_PMF = np.copy(empirical_code_PMF)
-  nonzero_inds = log_PMF != 0
-  log_PMF[nonzero_inds] = np.log(log_PMF[nonzero_inds])
-  log_PMF[nonzero_inds] -= np.min(log_PMF[nonzero_inds])
-  log_PMF[nonzero_inds] /= np.max(log_PMF[nonzero_inds])
+  if np.max(empirical_code_PMF) < 1.0:
+    nonzero_inds = log_PMF != 0
+    log_PMF[nonzero_inds] = np.log(log_PMF[nonzero_inds])
+    log_PMF[nonzero_inds] -= np.min(log_PMF[nonzero_inds])
+    log_PMF[nonzero_inds] /= np.max(log_PMF[nonzero_inds])
 
   if assignment_pts.ndim == 1:
     mline, stemline, baseline = ax[1].stem(assignment_pts, empirical_code_PMF,
@@ -142,7 +143,7 @@ def plot_1d_and_2d_assignments(assignment_pts, orig_samps, assignment_inds,
     plt.setp(stemline, 'color', tab10colors[1])
     plt.setp(mline, 'color', tab10colors[1])
     ax[1].text(0.98, 0.98,
-        'Entropy of code: {:.2f} bits'.format(shannon_entropy),
+        'Entropy of code: {:.2f} bits'.format(np.abs(shannon_entropy)),
         horizontalalignment='right', verticalalignment='top',
         transform=ax[1].transAxes, color=tab10colors[4], fontsize=15)
     ax[1].set_title('Empirical PMF of the code', fontsize=15)
@@ -153,7 +154,7 @@ def plot_1d_and_2d_assignments(assignment_pts, orig_samps, assignment_inds,
       ax[1].scatter(assignment_pts[ap_idx, 0], assignment_pts[ap_idx, 1], s=50,
           color=blues(log_PMF[ap_idx]))
     ax[1].text(0.98, 0.98,
-        'Entropy of code: {:.2f} bits'.format(shannon_entropy),
+        'Entropy of code: {:.2f} bits'.format(np.abs(shannon_entropy)),
         horizontalalignment='right', verticalalignment='top',
         transform=ax[1].transAxes, color=tab10colors[4], fontsize=15)
     ax[1].set_xlim(min_max_x)
