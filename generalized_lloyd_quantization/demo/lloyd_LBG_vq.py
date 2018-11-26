@@ -213,7 +213,7 @@ def main():
   # uniform scalar first
   uni_rates = []
   uni_MSEs = []
-  for binwidth in np.linspace(8, 16, 10):
+  for binwidth in np.linspace(4, 32, 50):
     _, _, uni_MSE_s0, uni_rate_s0 = uni(
          dummy_data[:, 0], binwidth, placement_scheme='on_mode')
     _, _, uni_MSE_s1, uni_rate_s1 = uni(
@@ -221,33 +221,42 @@ def main():
     uni_rates.append((uni_rate_s0 + uni_rate_s1) / 2)
     uni_MSEs.append((uni_MSE_s0 + uni_MSE_s1) / 2)
 
-  # suboptimal scalar
+  # for the Lloyd curves I'm going to start the initialization in exactly
+  # the same places as the uniform so we can see the improvement that Optimal
+  # Lloyd provides
+
+  # suboptimal scalar Lloyd
   gl_rates = []
   gl_MSEs = []
-  for binwidth in np.linspace(20, 35, 10):
-    init_assignments = get_init_assignments_for_lloyd(
-        dummy_data[:, 0], binwidth)
-    _, _, gl_MSE_s0, gl_rate_s0 = gl(dummy_data[:, 0], init_assignments)
-    init_assignments = get_init_assignments_for_lloyd(
-        dummy_data[:, 1], binwidth)
-    _, _, gl_MSE_s1, gl_rate_s1 = gl(dummy_data[:, 1], init_assignments)
+  for binwidth in np.linspace(4, 32, 50):
+    print('RD curve, suboptimal scalar lloyd, binwidth=', binwidth)
+    init_assignments, _, _, _ = uni(
+        dummy_data[:, 0], binwidth, placement_scheme='on_mode')
+    _, _, gl_MSE_s0, gl_rate_s0 = gl(dummy_data[:, 0], init_assignments,
+                                     force_const_num_assignment_pts=False)
+    #^ make this correspond to optimal lloyd with lambda=0.0.
+    init_assignments, _, _, _ = uni(
+        dummy_data[:, 1], binwidth, placement_scheme='on_mode')
+    _, _, gl_MSE_s1, gl_rate_s1 = gl(dummy_data[:, 1], init_assignments,
+                                     force_const_num_assignment_pts=False)
+    #^ make this correspond to optimal lloyd with lambda=0.0.
     gl_rates.append((gl_rate_s0 + gl_rate_s1) / 2)
     gl_MSEs.append((gl_MSE_s0 + gl_MSE_s1) / 2)
 
-  # next optimal scalar
+  # next optimal scalar Lloyd
   opt_gl_rates = []
   opt_gl_MSEs = []
-  binwidth = 20
-  for lagrange_w in np.linspace(0.4, 1.75, 10):
-    print(lagrange_w)
-    init_assignments = get_init_assignments_for_lloyd(
-        dummy_data[:, 0], binwidth)
+  binwidth = 4
+  for lagrange_w in np.linspace(0.0, 4.0, 50):
+    print('RD curve, optimal scalar lloyd, lagrange mult=', lagrange_w)
+    init_assignments, _, _, _ = uni(
+        dummy_data[:, 0], binwidth, placement_scheme='on_mode')
     init_cword_len = (-1. * np.log2(1. / len(init_assignments)) *
                       np.ones((len(init_assignments),)))
     _, _, opt_gl_MSE_s0, opt_gl_rate_s0 = opt_gl(dummy_data[:, 0],
         init_assignments, init_cword_len, lagrange_mult=lagrange_w)
-    init_assignments = get_init_assignments_for_lloyd(
-        dummy_data[:, 1], binwidth)
+    init_assignments, _, _, _ = uni(
+        dummy_data[:, 1], binwidth, placement_scheme='on_mode')
     init_cword_len = (-1. * np.log2(1. / len(init_assignments)) *
                       np.ones((len(init_assignments),)))
     _, _, opt_gl_MSE_s1, opt_gl_rate_s1 = opt_gl(dummy_data[:, 1],
@@ -255,10 +264,21 @@ def main():
     opt_gl_rates.append((opt_gl_rate_s0 + opt_gl_rate_s1) / 2)
     opt_gl_MSEs.append((opt_gl_MSE_s0 + opt_gl_MSE_s1) / 2)
 
+  # plot the three scalar variants
+  plt.figure(figsize=(20, 20))
+  plt.plot(uni_MSEs, uni_rates, label='Uniform Scalar', linewidth=4)
+  plt.plot(gl_MSEs, gl_rates, label='Suboptimal Scalar Lloyd', linewidth=4)
+  plt.plot(opt_gl_MSEs, opt_gl_rates, label='Optimal Scalar Lloyd', linewidth=4)
+  plt.legend(fontsize=15)
+  plt.title('Rate-distortion performance of different scalar quantization ' +
+            'schemes', fontsize=20)
+  plt.xlabel('Distortion (Mean squared error)', fontsize=15)
+  plt.ylabel('Rate (bits per component)', fontsize=15)
+
   # next uniform vector (2d)
   uni_2d_rates = []
   uni_2d_MSEs = []
-  for binwidth in np.linspace(8, 16, 10):
+  for binwidth in np.linspace(8, 32, 50):
     _, _, uni_2d_MSE, uni_2d_rate = uni(
          dummy_data, np.array([binwidth, binwidth]), placement_scheme='on_mode')
     uni_2d_rates.append(uni_2d_rate / 2)
@@ -267,22 +287,24 @@ def main():
   # next suboptimal generalized Lloyd (2d)
   gl_2d_rates = []
   gl_2d_MSEs = []
-  for binwidth in np.linspace(27, 48, 5):
-    print('Lloyd 2d')
-    init_assignments = get_init_assignments_for_lloyd(
-        dummy_data, np.array([binwidth, binwidth]))
-    _, _, gl_2d_MSE, gl_2d_rate = gl(dummy_data, init_assignments)
+  for binwidth in np.linspace(8, 50, 50):
+    print('RD curve, suboptimal vector Lloyd, binwidth=', binwidth)
+    init_assignments, _, _, _ = uni(
+        dummy_data, np.array([binwidth, binwidth]), placement_scheme='on_mode')
+    _, _, gl_2d_MSE, gl_2d_rate = gl(dummy_data, init_assignments,
+                                     force_const_num_assignment_pts=False)
+    #^ make this correspond to optimal lloyd with lambda=0.0.
     gl_2d_rates.append(gl_2d_rate / 2)
     gl_2d_MSEs.append(gl_2d_MSE / 2)
 
   # finally, the optimal generalized Lloyd
   opt_gl_2d_rates = []
   opt_gl_2d_MSEs = []
-  binwidth = 22
-  for lagrange_w in np.linspace(0.4, 2.5, 5):
-    print(lagrange_w)
-    init_assignments = get_init_assignments_for_lloyd(
-        dummy_data, np.array([binwidth, binwidth]))
+  binwidth = 8
+  for lagrange_w in np.linspace(0.0, 8.0, 50):
+    print('RD curve, optimal vector Lloyd, lagrange mult=', lagrange_w)
+    init_assignments, _, _, _ = uni(
+        dummy_data, np.array([binwidth, binwidth]), placement_scheme='on_mode')
     init_cword_len = (-1. * np.log2(1. / len(init_assignments)) *
                       np.ones((len(init_assignments),)))
     _, _, opt_gl_2d_MSE, opt_gl_2d_rate = opt_gl(
@@ -290,6 +312,20 @@ def main():
     opt_gl_2d_rates.append(opt_gl_2d_rate / 2)
     opt_gl_2d_MSEs.append(opt_gl_2d_MSE / 2)
 
+
+  # plot the three 2D variants
+  plt.figure(figsize=(20, 20))
+  plt.plot(uni_2d_MSEs, uni_2d_rates, label='Uniform 2D', linewidth=4)
+  plt.plot(gl_2d_MSEs, gl_2d_rates, label='Suboptimal 2D Lloyd', linewidth=4)
+  plt.plot(opt_gl_2d_MSEs, opt_gl_2d_rates, label='Optimal 2D Lloyd',
+           linewidth=4)
+  plt.legend(fontsize=15)
+  plt.title('Rate-distortion performance of different vector quantization ' +
+            'schemes', fontsize=20)
+  plt.xlabel('Distortion (Mean squared error)', fontsize=15)
+  plt.ylabel('Rate (bits per component)', fontsize=15)
+
+  # plot all the variants together
   plt.figure(figsize=(20, 20))
   plt.plot(uni_MSEs, uni_rates, label='Uniform Scalar', linewidth=4)
   plt.plot(gl_MSEs, gl_rates, label='Suboptimal Scalar Lloyd', linewidth=4)
