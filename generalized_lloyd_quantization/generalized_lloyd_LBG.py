@@ -32,7 +32,7 @@ from scipy.spatial.distance import cdist as scipy_distance
 def compute_quantization(samples, init_assignment_pts,
                          force_const_num_assignment_pts=True, epsilon=1e-5):
   """
-  Generalized Lloyd-Max alg. for quantizing vector r.v.s w/ fixed num of bins
+  Generalized Lloyd-Max alg. for quantizing vector-valued random variables
 
   The quantizer minimally consists of the set of assignment points. The optimal
   quantization region edges are precisely the hyperplanes that define the region

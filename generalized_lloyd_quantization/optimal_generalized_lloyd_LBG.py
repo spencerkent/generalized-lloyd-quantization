@@ -39,8 +39,7 @@ def compute_quantization(samples, init_assignment_pts,
   different lengths to each assignment point. We'll call this our code cost.
   Our policy will be to eliminate assignment points with zero empirical
   probability so that the final number of assignment points may be smaller
-  than what we start with. We will also return the quantized samples given
-  by the converged quantizer.
+  than what we start with.
 
   Parameters
   ----------
@@ -54,7 +53,7 @@ def compute_quantization(samples, init_assignment_pts,
   init_assignment_codeword_lengths : ndarray (m,)
       The starting lengths for each assignment point. This will be changed in
       the first iteration to reflect the empirical probability of this codeword.
-      Each components should be in the open interval (0, inf)
+      Each of the components should be in the open interval (0, inf)
   lagrange_mult : float
       This is our knob to set the rate. We might have to sweep it carefully to
       trace out a finely sampled R/D curve.
