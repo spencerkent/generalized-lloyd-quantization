@@ -79,6 +79,8 @@ def compute_quantization(samples, init_assignment_pts,
       we use a lossless binary source code, that our expected codeword length
       is precisely this value
   """
+  samples = np.copy(samples)  # get rid of the original reference to make sure
+                              # we don't modify the data in the calling scope
   if samples.ndim == 2:
     if samples.shape[1] == 1:
       # we'll just work w/ 1d vectors for the scalar case
@@ -104,14 +106,15 @@ def compute_quantization(samples, init_assignment_pts,
 
   # partition the data into appropriate clusters
   quantized_code, cluster_assignments, assignment_pts, codeword_lengths = \
-      greedy_partition(samples, assignment_pts, codeword_lengths, lagrange_mult)
-  cword_probs = calculate_assignment_probabilites(cluster_assignments,
-                                                  assignment_pts.shape[0])
+      partition_with_drops(samples, assignment_pts,
+                           codeword_lengths, lagrange_mult)
+
   if samples.ndim == 1:
     MSE = np.mean(np.square(quantized_code - samples))
   else:
     MSE = np.mean(np.sum(np.square(quantized_code - samples), axis=1))
 
+  cword_probs = np.power(2., -1 * codeword_lengths)
   shannon_entropy = np.sum(cword_probs * codeword_lengths)
   code_cost = MSE + lagrange_mult * shannon_entropy
 
@@ -126,19 +129,15 @@ def compute_quantization(samples, init_assignment_pts,
 
     # partition the data into appropriate clusters
     quantized_code, cluster_assignments, assignment_pts, codeword_lengths = \
-        greedy_partition(samples, assignment_pts,
-                         codeword_lengths, lagrange_mult)
-
-    # given the current assignments compute the (asymptotically)
-    # optimal codeword lengths
-    cword_probs = calculate_assignment_probabilites(cluster_assignments,
-                                                    assignment_pts.shape[0])
-    codeword_lengths = -1 * np.log2(cword_probs)
+        partition_with_drops(samples, assignment_pts,
+                             codeword_lengths, lagrange_mult)
 
     if samples.ndim == 1:
       MSE = np.mean(np.square(quantized_code - samples))
     else:
       MSE = np.mean(np.sum(np.square(quantized_code - samples), axis=1))
+
+    cword_probs = np.power(2., -1 * codeword_lengths)
     shannon_entropy = np.sum(cword_probs * codeword_lengths)
     code_cost = MSE + lagrange_mult * shannon_entropy
 
@@ -216,17 +215,13 @@ def quantize(raw_vals, assignment_vals, codeword_lengths,
     return assignment_vals[c_assignments]
 
 
-def greedy_partition(raw_vals, a_vals, c_lengths, l_weight):
+def partition_with_drops(raw_vals, a_vals, c_lengths, l_weight):
   """
   Partition the data according to the assignment values.
 
-  This is just a wrapper on the quantize() function above which lets us
-  drop clusters when there is a quantization bin with no data in it.
-  If there are clusters with no data, we will DROP these clusters. According
-  to Chou et al. (1989) the splitting procedure we use in the non-optimal LBG
-  case is not well-motivated here because we will pay no coding cost by
-  removing this cluster. Therefore our policy will be precisely that, to remove
-  any clusters that have no data. We call this the greedy partition strategy.
+  This is just a wrapper on the quantize() function above which, following the
+  advice of Chou et al. (1989), drops assignment points from the quantization
+  whenever there are quantization bins with no data in them.
 
   Parameters
   ----------
@@ -242,27 +237,25 @@ def greedy_partition(raw_vals, a_vals, c_lengths, l_weight):
   l_weight : float
       The value of the lagrange multiplier in the augmented cost function
   """
-  fresh_a_vals = np.copy(a_vals)
-  fresh_c_lengths = np.copy(c_lengths)
-  quant_code, c_assignments = quantize(raw_vals, fresh_a_vals,
-                                       fresh_c_lengths, l_weight, True)
+  quant_code, c_assignments = quantize(raw_vals, a_vals,
+                                       c_lengths, l_weight, True)
+
   cword_probs = calculate_assignment_probabilites(c_assignments,
-                                                  fresh_a_vals.shape[0])
-  if not np.any(cword_probs == 0):
-    return quant_code, c_assignments, fresh_a_vals, fresh_c_lengths
-  else:
+                                                  a_vals.shape[0])
+  if np.any(cword_probs == 0):
     nonzero_prob_pts = np.where(cword_probs != 0)
-    # Clusters w/ zero empirical probability are problematic (they aren't
-    # necessarily in suboptimal LBG) because this will cause the codeword
-    # lengths to be infinity, thus no points will ever get assigned to
-    # these clusters. Therefore following the advice of Chou et al. (1989) we will
-    # drop these clusters.
-    fresh_a_vals = fresh_a_vals[nonzero_prob_pts]
-    fresh_c_lengths = fresh_c_lengths[nonzero_prob_pts]
-    # the indexes of c_assignments will be stale now so we recompute...
-    quant_code, c_assignments = quantize(raw_vals, fresh_a_vals,
-                                         fresh_c_lengths, l_weight, True)
-    return quant_code, c_assignments, fresh_a_vals, fresh_c_lengths
+    # the indexes of c_assignments should reflect these dropped bins
+    temp = np.arange(a_vals.shape[0])
+    temp = temp[nonzero_prob_pts]
+    reassigned_inds = {old_idx: new_idx for new_idx, old_idx in enumerate(temp)}
+    for pt in range(len(c_assignments)):
+      c_assignments[pt] = reassigned_inds[c_assignments[pt]]
+    a_vals = a_vals[nonzero_prob_pts]
+    cword_probs = cword_probs[nonzero_prob_pts]
+  # update c_lengths so that the returned values reflect the current assignment
+  c_lengths = -1 * np.log2(cword_probs)
+
+  return quant_code, c_assignments, a_vals, c_lengths
 
 
 def calculate_assignment_probabilites(assignments, num_clusters):
