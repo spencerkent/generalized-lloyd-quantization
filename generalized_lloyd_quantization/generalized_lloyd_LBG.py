@@ -79,6 +79,8 @@ def compute_quantization(samples, init_assignment_pts,
       we use a lossless binary source code, that our expected codeword length
       is precisely this value.
   """
+  samples = np.copy(samples)  # get rid of the original reference to make sure
+                              # we don't modify the data in the calling scope
   if samples.ndim == 2:
     if samples.shape[1] == 1:
       # we'll just work w/ 1d vectors for the scalar case
@@ -269,17 +271,20 @@ def partition_with_drops(raw_vals, a_vals):
       The *initial* allowable assignment values. These may change according to
       whether quantizing based on these initial points results in empty bins.
   """
-  fresh_a_vals = np.copy(a_vals)
-  quant_code, c_assignments = quantize(raw_vals, fresh_a_vals, True)
+  quant_code, c_assignments = quantize(raw_vals, a_vals, True)
   cword_probs = calculate_assignment_probabilites(c_assignments,
-                                                  fresh_a_vals.shape[0])
+                                                  a_vals.shape[0])
   if np.any(cword_probs == 0):
     nonzero_prob_pts = np.where(cword_probs != 0)
-    fresh_a_vals = fresh_a_vals[nonzero_prob_pts]
-    # the indexes of c_assignments will be stale now so we recompute...
-    quant_code, c_assignments = quantize(raw_vals, fresh_a_vals, True)
+    # the indexes of c_assignments should reflect these dropped bins
+    temp = np.arange(a_vals.shape[0])
+    temp = temp[nonzero_prob_pts]
+    reassigned_inds = {old_idx: new_idx for new_idx, old_idx in enumerate(temp)}
+    for pt in range(len(c_assignments)):
+      c_assignments[pt] = reassigned_inds[c_assignments[pt]]
+    a_vals = a_vals[nonzero_prob_pts]
 
-  return quant_code, c_assignments, fresh_a_vals
+  return quant_code, c_assignments, a_vals
 
 
 def calculate_assignment_probabilites(assignments, num_clusters):
