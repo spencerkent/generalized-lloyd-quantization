@@ -7,6 +7,15 @@ e^T R e where e is the error vector. The computational or analytical details
 of using these other distortion measures may be less desirable than for the
 canonical 2-norm-squared distortion metric.
 
+This approach really only makes sense when one has a codebook with equal
+codeword lengths (sometimes called a {F}ixed {L}ength {C}ode). In that case,
+we just care about minimizing the distortion given some number of codewords. If
+the code can be variable length, reflecting the probability of each codeword,
+(a so-called {V}ariable {L}ength {C}ode), then *you don't want to use this*.
+Instead, you want to use the optimal generalized Lloyd algorithm which will
+make quantization assignments that account for the different codeword
+probabilities and thus the different codeword lengths
+
 .. [1] Lloyd, S. (1957, unpublished Bell Labs technical report).
        Least squares quantization in PCM. Later published as:
 
@@ -20,7 +29,8 @@ import copy
 import numpy as np
 from scipy.spatial.distance import cdist as scipy_distance
 
-def compute_quantization(samples, init_assignment_pts, epsilon=1e-5):
+def compute_quantization(samples, init_assignment_pts,
+                         force_const_num_assignment_pts=True, epsilon=1e-5):
   """
   Generalized Lloyd-Max alg. for quantizing vector r.v.s w/ fixed num of bins
 
@@ -29,8 +39,7 @@ def compute_quantization(samples, init_assignment_pts, epsilon=1e-5):
   for which a point is closer to the assignment point than any other.
   This is the voronoi tesselation of the space filled with assignment points.
   In the scalar case these are the midpoints between any two consecutive
-  assignment points. We will also return the quantized samples given
-  by the converged quantizer.
+  assignment points.
 
   Parameters
   ----------
@@ -43,6 +52,13 @@ def compute_quantization(samples, init_assignment_pts, epsilon=1e-5):
       for the quantizer. This is the main knob we have in determining the
       fidelity of this quantizer. If the quantization is scalar we will accept
       a 1d array as input.
+  force_const_num_assignment_pts : bool, optional
+      If true, whenever we encounter a partition that leaves an assignment point
+      with no assigned datapoints (the 'bin' is empty), then we will split the
+      most populous 'bin' and recompute the partition, keeping the same number
+      of total assignment points. If false, whenever we encounter an empty 'bin'
+      we will just drop that assignment point. Empty assignment point bins will
+      be much more common in the vector quantization setting. Default True.
   epsilon : float, optional
       The tolerance for change in MSE after which we decide we have converged
       Default 1e-5.
@@ -84,8 +100,12 @@ def compute_quantization(samples, init_assignment_pts, epsilon=1e-5):
     assert np.all(np.diff(assignment_pts) > 0)  # monotonically increasing
 
   # partition the data into appropriate clusters
-  quantized_code, cluster_assignments, assignment_pts = \
-      iterative_partition(samples, assignment_pts)
+  if force_const_num_assignment_pts:
+    partition = partition_with_splitting
+  else:
+    partition = partition_with_drops
+  quantized_code, cluster_assignments, assignment_pts = partition(
+      samples, assignment_pts)
 
   if samples.ndim == 1:
     MSE = np.mean(np.square(quantized_code - samples))
@@ -101,8 +121,8 @@ def compute_quantization(samples, init_assignment_pts, epsilon=1e-5):
       assignment_pts[bin_idx] = np.mean(binned_samples, axis=0)
 
     # partition the data into appropriate clusters
-    quantized_code, cluster_assignments, assignment_pts = \
-        iterative_partition(samples, assignment_pts)
+    quantized_code, cluster_assignments, assignment_pts = partition(
+        samples, assignment_pts)
 
     if samples.ndim == 1:
       MSE = np.mean(np.square(quantized_code - samples))
@@ -174,7 +194,7 @@ def quantize(raw_vals, assignment_vals, return_cluster_assignments=False):
     #  successful. I also tried scipy's vq method from the clustering
     #  module but it's also just doing brute force search (albeit in C).
     #  This approach might have decent performance when the number of
-    #  assignment points is small (low fidelity, very loss regime). In the
+    #  assignment points is small (low fidelity, very lossy regime). In the
     #  future we should be able to roll a much faster search implementation and
     #  speed up this part of the algorithm...
 
@@ -184,16 +204,13 @@ def quantize(raw_vals, assignment_vals, return_cluster_assignments=False):
     return assignment_vals[c_assignments]
 
 
-#TODO: experiment with whether splitting the bins as we do below is the smartest
-#      thing for us to do
-def iterative_partition(raw_vals, a_vals):
+def partition_with_splitting(raw_vals, a_vals):
   """
   Partitions the data according to the assignment values.
 
-  This is just a wrapper on the quantize() function above which lets us
-  reallocate assignment points when there are quantization bins with no data in
-  them. Following the advice of Linde et al. (1980), our convention is to
-  split the most populous bin into two.
+  This is just a wrapper on the quantize() function above which, following the
+  advice of Linde et al. (1980), reallocates assignment points by splitting the
+  most populous quantization bin when there are bins with no data in them.
 
   Parameters
   ----------
@@ -233,6 +250,36 @@ def iterative_partition(raw_vals, a_vals):
         # we have to re-sort the assignment points b/c our 1d partition method
         # requires it
         fresh_a_vals = np.sort(fresh_a_vals)
+
+
+def partition_with_drops(raw_vals, a_vals):
+  """
+  Partition the data according to the assignment values.
+
+  This is just a wrapper on the quantize() function above which, following the
+  advice of Chou et al. (1989), drops assignment points from the quantization
+  whenever there are quantization bins with no data in them. You obviously
+  shouldn't use this if you want the code to have a fixed number of codewords.
+
+  Parameters
+  ----------
+  raw_vals : ndarray (d, n) or (d,)
+      The raw values to be quantized according to the assignment points
+  a_vals : ndarray (m, n) or (m,)
+      The *initial* allowable assignment values. These may change according to
+      whether quantizing based on these initial points results in empty bins.
+  """
+  fresh_a_vals = np.copy(a_vals)
+  quant_code, c_assignments = quantize(raw_vals, fresh_a_vals, True)
+  cword_probs = calculate_assignment_probabilites(c_assignments,
+                                                  fresh_a_vals.shape[0])
+  if np.any(cword_probs == 0):
+    nonzero_prob_pts = np.where(cword_probs != 0)
+    fresh_a_vals = fresh_a_vals[nonzero_prob_pts]
+    # the indexes of c_assignments will be stale now so we recompute...
+    quant_code, c_assignments = quantize(raw_vals, fresh_a_vals, True)
+
+  return quant_code, c_assignments, fresh_a_vals
 
 
 def calculate_assignment_probabilites(assignments, num_clusters):
