@@ -79,26 +79,18 @@ def compute_quantization(samples, init_assignment_pts,
       we use a lossless binary source code, that our expected codeword length
       is precisely this value.
   """
-  samples = np.copy(samples)  # get rid of the original reference to make sure
-                              # we don't modify the data in the calling scope
-  if samples.ndim == 2:
-    if samples.shape[1] == 1:
-      # we'll just work w/ 1d vectors for the scalar case
-      samples = np.squeeze(samples)
-      assignment_pts = np.squeeze(init_assignment_pts)
-    else:
-      # Euclidean distances in N-dimensional spaces are sensitive to
-      # the relative variances of each component. We will run the algorithm
-      # on "normalized" lengths and then at the end we can 'unnormalize'
-      # the values to get back our original space. During the iteration though
-      # we will be computing MSE in the normalized space
-      saved_component_stds = np.std(samples, axis=0)
-      samples = samples / saved_component_stds[None, :]
-      assignment_pts = init_assignment_pts / saved_component_stds[None, :]
+  # get rid of the original references to make sure we don't modify the data
+  # in the calling scope
+  samples = np.copy(samples)
+  assignment_pts = np.copy(init_assignment_pts)
+  if samples.ndim == 2 and samples.shape[1] == 1:
+    # we'll just work w/ 1d vectors for the scalar case
+    samples = np.squeeze(samples)
+    assignment_pts = np.squeeze(assignment_pts)
   if samples.ndim == 1:
     # we use a more efficient partition strategy for scalar vars that
     # requires the assignment points to be sorted
-    assignment_pts = np.sort(init_assignment_pts)
+    assignment_pts = np.sort(assignment_pts)
     assert np.all(np.diff(assignment_pts) > 0)  # monotonically increasing
 
   # partition the data into appropriate clusters
@@ -141,14 +133,6 @@ def compute_quantization(samples, init_assignment_pts,
       #^ this algorithm provably reduces MSE or leaves it unchanged at each
       #  iteration so the boundedness of MSE means this is a valid stopping
       #  criterion
-
-  if samples.ndim != 1:
-    # we want to return the code and quantization in the original space
-    assignment_pts = assignment_pts * saved_component_stds[None, :]
-    quantized_code = assignment_pts[cluster_assignments]
-    samples = samples * saved_component_stds[None, :]
-    # compute the MSE of the quantized code in the original space
-    MSE = np.mean(np.sum(np.square(quantized_code - samples), axis=1))
 
   # the last thing we'll do is compute the (empirical)
   # shannon entropy of this code
@@ -234,14 +218,11 @@ def partition_with_splitting(raw_vals, a_vals):
     # otherwise reallocate the empty cluster assignment points and try again
     else:
       most_probable = np.argmax(cword_probs)
-      if raw_vals.ndim == 1:
+      max_offset = 0.01 * np.square(np.std(raw_vals, axis=0))
+      if type(max_offset) != np.ndarray:
         offset_sz = 1
-        max_offset = 0.01 * np.square(np.std(raw_vals))
       else:
-        offset_sz = fresh_a_vals.shape[1]
-        max_offset = 0.01
-        #^ each component has variance 1 due to our normalization in the calling
-        # function so a maximum perturbation of 0.01 seems reasonable...
+        offset_sz = len(max_offset)
       zero_prob_bins = np.where(cword_probs == 0)
       for zero_prob_bin in zero_prob_bins:
         rand_offset = np.random.uniform(-1*max_offset, max_offset,

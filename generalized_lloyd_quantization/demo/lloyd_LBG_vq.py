@@ -185,14 +185,14 @@ def main():
 
   #######################################################
   # We can compare this to the optimal generalized Lloyd
-  BINWIDTHS = np.array([20, 20])
+  BINWIDTHS = np.array([23., 24.])
   starttime = time.time()
   init_assignments = get_init_assignments_for_lloyd(dummy_data, BINWIDTHS)
   init_cword_len = (-1. * np.log2(1. / len(init_assignments)) *
                     np.ones((len(init_assignments),)))
 
   opt_gl_2d_apts, opt_gl_2d_assignments, opt_gl_2d_MSE, opt_gl_2d_rate = \
-      opt_gl(dummy_data, init_assignments, init_cword_len, lagrange_mult=0.6)
+      opt_gl(dummy_data, init_assignments, init_cword_len, lagrange_mult=0.1)
   print("Time to compute 2d (optimal) vector quantization:",
         time.time() - starttime)
 
@@ -287,7 +287,7 @@ def main():
   # next suboptimal generalized Lloyd (2d)
   gl_2d_rates = []
   gl_2d_MSEs = []
-  for binwidth in np.linspace(8, 50, 50):
+  for binwidth in np.linspace(8, 60, 50):
     print('RD curve, suboptimal vector Lloyd, binwidth=', binwidth)
     init_assignments, _, _, _ = uni(
         dummy_data, np.array([binwidth, binwidth]), placement_scheme='on_mode')
@@ -301,7 +301,7 @@ def main():
   opt_gl_2d_rates = []
   opt_gl_2d_MSEs = []
   binwidth = 8
-  for lagrange_w in np.linspace(0.0, 8.0, 50):
+  for lagrange_w in np.linspace(0.0, 4.0, 50):
     print('RD curve, optimal vector Lloyd, lagrange mult=', lagrange_w)
     init_assignments, _, _, _ = uni(
         dummy_data, np.array([binwidth, binwidth]), placement_scheme='on_mode')

@@ -78,30 +78,25 @@ def compute_quantization(samples, init_assignment_pts,
       we use a lossless binary source code, that our expected codeword length
       is precisely this value
   """
-  samples = np.copy(samples)  # get rid of the original reference to make sure
-                              # we don't modify the data in the calling scope
-  if samples.ndim == 2:
-    if samples.shape[1] == 1:
-      # we'll just work w/ 1d vectors for the scalar case
-      samples = np.squeeze(samples)
-      assignment_pts = np.squeeze(init_assignment_pts)
-    else:
-      # Euclidean distances in N-dimensional spaces are sensitive to
-      # the relative variances of each component. We will run the algorithm
-      # on "normalized" lengths and then at the end we can 'unnormalize'
-      # the values to get back our original space. During the iteration though
-      # we will be computing MSE in the normalized space
-      saved_component_stds = np.std(samples, axis=0)
-      samples = samples / saved_component_stds[None, :]
-      assignment_pts = init_assignment_pts / saved_component_stds[None, :]
-      lagrange_mult = lagrange_mult / np.sum(saved_component_stds[None, :])
-      codeword_lengths = np.copy(init_assignment_codeword_lengths)
+  # get rid of the original references to make sure we don't modify the data
+  # in the calling scope
+  samples = np.copy(samples)
+  assignment_pts = np.copy(init_assignment_pts)
+  codeword_lengths = np.copy(init_assignment_codeword_lengths)
+  if samples.ndim == 2 and samples.shape[1] == 1:
+    # we'll just work w/ 1d vectors for the scalar case
+    samples = np.squeeze(samples)
+    assignment_pts = np.squeeze(assignment_pts)
   if samples.ndim == 1:
-    assignment_pts = np.copy(init_assignment_pts)
-    codeword_lengths = np.copy(init_assignment_codeword_lengths)
+    # we use a more efficient partition strategy for scalar vars that
+    # requires the assignment points to be sorted
+    assignment_pts = np.sort(assignment_pts)
+    assert np.all(np.diff(assignment_pts) > 0)  # monotonically increasing
     lagrange_mult = lagrange_mult * np.std(samples)
+  else:
+    lagrange_mult = lagrange_mult * np.mean(np.std(samples, axis=0))
     #^ put effective lagrange mult on a sort of normalized scale
-    #  with the variance of our samples
+    #  with the standard deviation of our samples
 
   # partition the data into appropriate clusters
   quantized_code, cluster_assignments, assignment_pts, codeword_lengths = \
@@ -150,14 +145,6 @@ def compute_quantization(samples, init_assignment_pts,
       #^ this algorithm provably reduces this cost or leaves it unchanged at
       #  each iteration so the boundedness of this cost means this is a
       #  valid stopping criterion
-
-  if samples.ndim != 1:
-    # we want to return the code and quantization in the original space
-    assignment_pts = assignment_pts * saved_component_stds[None, :]
-    quantized_code = assignment_pts[cluster_assignments]
-    samples = samples * saved_component_stds[None, :]
-    # compute the MSE of the quantized code in the original space
-    MSE = np.mean(np.sum(np.square(quantized_code - samples), axis=1))
 
   return assignment_pts, cluster_assignments, MSE, shannon_entropy
 
