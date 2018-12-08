@@ -101,12 +101,12 @@ def plot_1d_and_2d_assignments(assignment_pts, orig_samps, assignment_inds,
                  interpolation='nearest', cmap='Blues')
 
     def transform_coords_to_image_space(scalar_coords, min_max, which_axis):
-      rescaled = (plot_bin_num *
+      rescaled = ((plot_bin_num - 1) *
           (scalar_coords - min_max[0]) / (min_max[1] - min_max[0]))
       if which_axis == 'x':
         return rescaled
       else:
-        return plot_bin_num - rescaled
+        return plot_bin_num - 1 - rescaled
 
     apts_x_img_coordinates = transform_coords_to_image_space(
       assignment_pts[:, 0], min_max_x, 'x')
