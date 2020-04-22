@@ -114,12 +114,22 @@ def compute_quantization(samples, binwidth, placement_scheme='on_mode'):
     assignment_pts = np.linspace(anchored_pt - num_pts_lower * binwidth,
                                  anchored_pt + num_pts_higher * binwidth,
                                  num_a_pts_each_dim)
+    if placement_scheme == 'on_zero':
+      # for some reason there seams to be a numerical issue with linspace
+      # keeping the anchored point exactly on zero - it can drift to like 1e-14.
+      # since we clearly want the point exactly on zero I'm going to correct
+      # this before we return
+      assignment_pts[np.argmin(np.abs(assignment_pts))] = 0.0
   else:
     # careful, this can get huge in high dimensions.
     assignment_pts = np.array(list(cartesian_product(
       *[np.linspace(anchored_pt[x] - num_pts_lower[x] * binwidth[x],
                     anchored_pt[x] + num_pts_higher[x] * binwidth[x],
                     num_a_pts_each_dim[x]) for x in range(samples.shape[1])])))
+    if placement_scheme == 'on_zero':
+      # See above for r.e. this correction
+      assignment_pts[np.argmin(np.linalg.norm(assignment_pts, axis=1))] = \
+          np.zeros((samples.shape[1], ))
 
   quantized_code, cluster_assignments = quantize(samples, assignment_pts, True)
 

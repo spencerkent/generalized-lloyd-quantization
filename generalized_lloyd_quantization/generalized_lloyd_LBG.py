@@ -141,7 +141,7 @@ def compute_quantization(samples, init_assignment_pts,
   assert np.isclose(np.sum(cword_probs), 1.0)
   shannon_entropy = -1 * np.sum(cword_probs * np.log2(cword_probs))
 
-  return assignment_pts, cluster_assignments, MSE, shannon_entropy
+  return assignment_pts, cluster_assignments, MSE, shannon_entropy, cword_probs
 
 
 def quantize(raw_vals, assignment_vals, return_cluster_assignments=False):

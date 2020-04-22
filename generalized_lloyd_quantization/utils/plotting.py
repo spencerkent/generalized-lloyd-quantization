@@ -50,8 +50,8 @@ def plot_1d_and_2d_assignments(assignment_pts, orig_samps, assignment_inds,
 
   tab10colors = plt.get_cmap('tab10').colors
   blues = plt.get_cmap('Blues')
-  fig, ax = plt.subplots(1, 3, figsize=(24, 7))
-  fig.suptitle(title, fontsize=20)
+  fig, ax = plt.subplots(1, 3, figsize=(16, 5))
+  fig.suptitle(title, fontsize=14)
   ###########################################################################
   # plot the probability density the data with assignment points superimposed
   if assignment_pts.ndim == 1:
@@ -80,10 +80,14 @@ def plot_1d_and_2d_assignments(assignment_pts, orig_samps, assignment_inds,
       # I'm not sure if these are guaranteed to be non-overlapping for adjacent
       # bins, so I'm leaving this blank until I decide how to plot these
       pass
-    ax[0].legend(fontsize=12)
-    ax[0].set_title('Empirical data density w/ assignment points', fontsize=15)
-    ax[0].set_ylabel('Histogram-based density estimate', fontsize=12)
-    ax[0].set_xlabel('Scalar values', fontsize=12)
+    ax[0].legend(fontsize=8)
+    ax[0].set_title('Empirical data density w/ assignment points', fontsize=10)
+    ax[0].set_ylabel('Histogram-based density estimate', fontsize=10)
+    ax[0].set_xlabel('Scalar values', fontsize=10)
+    ax[0].set_xlim([np.minimum(np.min(assignment_pts),
+                               np.min(histogram_bin_centers)),
+                    np.maximum(np.max(assignment_pts),
+                               np.max(histogram_bin_centers))])
   else:
     # this is a 2D plot. We'll plot the log probabilities of histogram bins
     counts, hist_bin_edges = np.histogramdd(orig_samps, plot_bin_num)
@@ -115,9 +119,9 @@ def plot_1d_and_2d_assignments(assignment_pts, orig_samps, assignment_inds,
     ax[0].scatter(apts_x_img_coordinates, apts_y_img_coordinates,
                   color=tab10colors[1], s=5)
     ax[0].set_title('Empirical (log) density of data w/ assignment points',
-                    fontsize=15)
-    ax[0].set_ylabel('Values for coefficient 1', fontsize=12)
-    ax[0].set_xlabel('Values for coefficient 0', fontsize=12)
+                    fontsize=10)
+    ax[0].set_ylabel('Values for coefficient 1', fontsize=10)
+    ax[0].set_xlabel('Values for coefficient 0', fontsize=10)
     ax[0].set_xlim([0, plot_bin_num])
     ax[0].set_ylim([plot_bin_num, 0])
     ax[0].set_aspect('equal')
@@ -145,23 +149,27 @@ def plot_1d_and_2d_assignments(assignment_pts, orig_samps, assignment_inds,
     ax[1].text(0.98, 0.98,
         'Entropy of code: {:.2f} bits'.format(np.abs(shannon_entropy)),
         horizontalalignment='right', verticalalignment='top',
-        transform=ax[1].transAxes, color=tab10colors[4], fontsize=15)
-    ax[1].set_title('Empirical PMF of the code', fontsize=15)
-    ax[1].set_ylabel('Histogram-based probability mass estimate', fontsize=12)
-    ax[1].set_xlabel('Scalar values', fontsize=12)
+        transform=ax[1].transAxes, color=tab10colors[4], fontsize=10)
+    ax[1].set_title('Empirical PMF of the code', fontsize=10)
+    ax[1].set_ylabel('Histogram-based probability mass estimate', fontsize=10)
+    ax[1].set_xlabel('Scalar values', fontsize=10)
+    ax[1].set_xlim([np.minimum(np.min(assignment_pts),
+                               np.min(histogram_bin_centers)),
+                    np.maximum(np.max(assignment_pts),
+                               np.max(histogram_bin_centers))])
   else:
     for ap_idx in range(len(assignment_pts)):
-      ax[1].scatter(assignment_pts[ap_idx, 0], assignment_pts[ap_idx, 1], s=50,
+      ax[1].scatter(assignment_pts[ap_idx, 0], assignment_pts[ap_idx, 1], s=35,
           color=blues(log_PMF[ap_idx]))
     ax[1].text(0.98, 0.98,
         'Entropy of code: {:.2f} bits'.format(np.abs(shannon_entropy)),
         horizontalalignment='right', verticalalignment='top',
-        transform=ax[1].transAxes, color=tab10colors[4], fontsize=15)
+        transform=ax[1].transAxes, color=tab10colors[4], fontsize=10)
     ax[1].set_xlim(min_max_x)
     ax[1].set_ylim(min_max_y)
-    ax[1].set_title('Empirical (log) PMF of the code', fontsize=15)
-    ax[1].set_ylabel('Values for coefficient 1', fontsize=12)
-    ax[1].set_xlabel('Values for coefficient 0', fontsize=12)
+    ax[1].set_title('Empirical (log) PMF of the code', fontsize=10)
+    ax[1].set_ylabel('Values for coefficient 1', fontsize=10)
+    ax[1].set_xlabel('Values for coefficient 0', fontsize=10)
     manual_aspect_ratio = ((min_max_x[1] - min_max_x[0]) /
                            (min_max_y[1] - min_max_y[0]))
     ax[1].set_aspect(manual_aspect_ratio)
@@ -191,10 +199,13 @@ def plot_1d_and_2d_assignments(assignment_pts, orig_samps, assignment_inds,
       ax[2].bar(histogram_bin_centers, empirical_density, align='center',
                 color=tab10colors[2], label='Estimated density',
                 width=histogram_bin_centers[1]-histogram_bin_centers[0])
-    ax[2].legend(fontsize=12)
-    ax[2].set_title('Empirical density of quantization noise', fontsize=15)
-    ax[2].set_ylabel('Histogram-based density estimate', fontsize=12)
-    ax[2].set_xlabel('Scalar values', fontsize=12)
+    ax[2].legend(fontsize=10)
+    ax[2].set_title('Empirical density of quantization noise', fontsize=10)
+    ax[2].set_ylabel('Histogram-based density estimate', fontsize=10)
+    ax[2].set_xlabel('Scalar values', fontsize=10)
+    ax[2].set_xlim([np.min(histogram_bin_centers),
+                    np.max(histogram_bin_centers)])
+
   else:
     # this is a 2D plot. We'll plot the log probabilities of histogram bins
     counts, hist_bin_edges = np.histogramdd(quant_noise, plot_bin_num)
@@ -206,8 +217,13 @@ def plot_1d_and_2d_assignments(assignment_pts, orig_samps, assignment_inds,
     log_density[nonzero_inds] /= np.max(log_density[nonzero_inds])
     hist_bin_centers = [(hist_bin_edges[x][:-1] + hist_bin_edges[x][1:]) / 2
                         for x in range(len(hist_bin_edges))]
+    print(hist_bin_centers)
     min_max_x = [hist_bin_centers[0][0], hist_bin_centers[0][-1]]
     min_max_y = [hist_bin_centers[1][0], hist_bin_centers[1][-1]]
+    print(min_max_x)
+    print(min_max_y)
+    print(np.min(log_density))
+    print(np.max(log_density))
     ax[2].imshow(np.flip(log_density.T, axis=0),
                  interpolation='nearest', cmap='Blues')
     ax[2].set_xticks(np.linspace(0, plot_bin_num, 5))
@@ -219,13 +235,14 @@ def plot_1d_and_2d_assignments(assignment_pts, orig_samps, assignment_inds,
     ax[2].set_xticklabels(xaxis_labels)
     ax[2].set_yticklabels(yaxis_labels)
     ax[2].set_title('Empirical (log) density of quantization noise',
-                    fontsize=15)
-    ax[2].set_ylabel('Values for coefficient 1', fontsize=12)
-    ax[2].set_xlabel('Values for coefficient 0', fontsize=12)
+                    fontsize=10)
+    ax[2].set_ylabel('Values for coefficient 1', fontsize=10)
+    ax[2].set_xlabel('Values for coefficient 0', fontsize=10)
     ax[2].set_xlim([0, plot_bin_num])
     ax[2].set_ylim([plot_bin_num, 0])
     ax[2].set_aspect('equal')
 
+  plt.tight_layout(rect=[0, 0, 1, 0.925])
   return fig
 
 def calculate_assignment_probabilites(assignments, num_clusters):

@@ -79,12 +79,12 @@ def main():
   starttime = time.time()
   init_assignments = get_init_assignments_for_lloyd(
       dummy_data[:, 0], INIT_BW_C0)
-  gl_apts_s0, gl_assignments_s0, gl_MSE_s0, gl_rate_s0 = gl(
+  gl_apts_s0, gl_assignments_s0, gl_MSE_s0, gl_rate_s0, _ = gl(
       dummy_data[:, 0], init_assignments)
 
   init_assignments = get_init_assignments_for_lloyd(
       dummy_data[:, 1], INIT_BW_C1)
-  gl_apts_s1, gl_assignments_s1, gl_MSE_s1, gl_rate_s1 = gl(
+  gl_apts_s1, gl_assignments_s1, gl_MSE_s1, gl_rate_s1, _ = gl(
       dummy_data[:, 1], init_assignments)
   print("Time to compute separate (suboptimal) scalar quantizations:",
         time.time() - starttime)
@@ -114,7 +114,7 @@ def main():
       dummy_data[:, 0], INIT_BW_C0)
   init_cword_len = (-1. * np.log2(1. / len(init_assignments)) *
                     np.ones((len(init_assignments),)))
-  opt_gl_apts_s0, opt_gl_assignments_s0, opt_gl_MSE_s0, opt_gl_rate_s0 = \
+  opt_gl_apts_s0, opt_gl_assignments_s0, opt_gl_MSE_s0, opt_gl_rate_s0, _ = \
       opt_gl(dummy_data[:, 0], init_assignments,
              init_cword_len, lagrange_mult=0.6)
 
@@ -122,7 +122,7 @@ def main():
       dummy_data[:, 1], INIT_BW_C1)
   init_cword_len = (-1. * np.log2(1. / len(init_assignments)) *
                     np.ones((len(init_assignments),)))
-  opt_gl_apts_s1, opt_gl_assignments_s1, opt_gl_MSE_s1, opt_gl_rate_s1 = \
+  opt_gl_apts_s1, opt_gl_assignments_s1, opt_gl_MSE_s1, opt_gl_rate_s1, _ = \
       opt_gl(dummy_data[:, 1], init_assignments,
              init_cword_len, lagrange_mult=0.6)
   print("Time to compute separate (optimal) scalar quantizations:",
@@ -167,7 +167,7 @@ def main():
   BINWIDTHS = np.array([29., 30.])
   starttime = time.time()
   init_assignments = get_init_assignments_for_lloyd(dummy_data, BINWIDTHS)
-  gl_2d_apts, gl_2d_assignments, gl_2d_MSE, gl_2d_rate = gl(
+  gl_2d_apts, gl_2d_assignments, gl_2d_MSE, gl_2d_rate, _ = gl(
       dummy_data, init_assignments)
   print("Time to compute 2d (suboptimal) vector quantization:",
         time.time() - starttime)
@@ -191,7 +191,7 @@ def main():
   init_cword_len = (-1. * np.log2(1. / len(init_assignments)) *
                     np.ones((len(init_assignments),)))
 
-  opt_gl_2d_apts, opt_gl_2d_assignments, opt_gl_2d_MSE, opt_gl_2d_rate = \
+  opt_gl_2d_apts, opt_gl_2d_assignments, opt_gl_2d_MSE, opt_gl_2d_rate, _ = \
       opt_gl(dummy_data, init_assignments, init_cword_len, lagrange_mult=0.1)
   print("Time to compute 2d (optimal) vector quantization:",
         time.time() - starttime)
@@ -232,13 +232,13 @@ def main():
     print('RD curve, suboptimal scalar lloyd, binwidth=', binwidth)
     init_assignments, _, _, _ = uni(
         dummy_data[:, 0], binwidth, placement_scheme='on_mode')
-    _, _, gl_MSE_s0, gl_rate_s0 = gl(dummy_data[:, 0], init_assignments,
-                                     force_const_num_assignment_pts=False)
+    _, _, gl_MSE_s0, gl_rate_s0, _ = gl(dummy_data[:, 0], init_assignments,
+                                        force_const_num_assignment_pts=False)
     #^ make this correspond to optimal lloyd with lambda=0.0.
     init_assignments, _, _, _ = uni(
         dummy_data[:, 1], binwidth, placement_scheme='on_mode')
-    _, _, gl_MSE_s1, gl_rate_s1 = gl(dummy_data[:, 1], init_assignments,
-                                     force_const_num_assignment_pts=False)
+    _, _, gl_MSE_s1, gl_rate_s1, _ = gl(dummy_data[:, 1], init_assignments,
+                                        force_const_num_assignment_pts=False)
     #^ make this correspond to optimal lloyd with lambda=0.0.
     gl_rates.append((gl_rate_s0 + gl_rate_s1) / 2)
     gl_MSEs.append((gl_MSE_s0 + gl_MSE_s1) / 2)
@@ -253,13 +253,13 @@ def main():
         dummy_data[:, 0], binwidth, placement_scheme='on_mode')
     init_cword_len = (-1. * np.log2(1. / len(init_assignments)) *
                       np.ones((len(init_assignments),)))
-    _, _, opt_gl_MSE_s0, opt_gl_rate_s0 = opt_gl(dummy_data[:, 0],
+    _, _, opt_gl_MSE_s0, opt_gl_rate_s0, _ = opt_gl(dummy_data[:, 0],
         init_assignments, init_cword_len, lagrange_mult=lagrange_w)
     init_assignments, _, _, _ = uni(
         dummy_data[:, 1], binwidth, placement_scheme='on_mode')
     init_cword_len = (-1. * np.log2(1. / len(init_assignments)) *
                       np.ones((len(init_assignments),)))
-    _, _, opt_gl_MSE_s1, opt_gl_rate_s1 = opt_gl(dummy_data[:, 1],
+    _, _, opt_gl_MSE_s1, opt_gl_rate_s1, _ = opt_gl(dummy_data[:, 1],
         init_assignments, init_cword_len, lagrange_mult=lagrange_w)
     opt_gl_rates.append((opt_gl_rate_s0 + opt_gl_rate_s1) / 2)
     opt_gl_MSEs.append((opt_gl_MSE_s0 + opt_gl_MSE_s1) / 2)
@@ -291,8 +291,8 @@ def main():
     print('RD curve, suboptimal vector Lloyd, binwidth=', binwidth)
     init_assignments, _, _, _ = uni(
         dummy_data, np.array([binwidth, binwidth]), placement_scheme='on_mode')
-    _, _, gl_2d_MSE, gl_2d_rate = gl(dummy_data, init_assignments,
-                                     force_const_num_assignment_pts=False)
+    _, _, gl_2d_MSE, gl_2d_rate, _ = gl(dummy_data, init_assignments,
+                                        force_const_num_assignment_pts=False)
     #^ make this correspond to optimal lloyd with lambda=0.0.
     gl_2d_rates.append(gl_2d_rate / 2)
     gl_2d_MSEs.append(gl_2d_MSE / 2)
@@ -307,7 +307,7 @@ def main():
         dummy_data, np.array([binwidth, binwidth]), placement_scheme='on_mode')
     init_cword_len = (-1. * np.log2(1. / len(init_assignments)) *
                       np.ones((len(init_assignments),)))
-    _, _, opt_gl_2d_MSE, opt_gl_2d_rate = opt_gl(
+    _, _, opt_gl_2d_MSE, opt_gl_2d_rate, _ = opt_gl(
         dummy_data, init_assignments, init_cword_len, lagrange_mult=lagrange_w)
     opt_gl_2d_rates.append(opt_gl_2d_rate / 2)
     opt_gl_2d_MSEs.append(opt_gl_2d_MSE / 2)

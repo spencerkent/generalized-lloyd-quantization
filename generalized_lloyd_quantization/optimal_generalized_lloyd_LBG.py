@@ -112,6 +112,7 @@ def compute_quantization(samples, init_assignment_pts,
   shannon_entropy = np.sum(cword_probs * codeword_lengths)
   code_cost = MSE + lagrange_mult * shannon_entropy
 
+  iter_idx = 0
   while True:
     old_code_cost = np.copy(code_cost)
     # update the centroids based on the current partition
@@ -145,8 +146,10 @@ def compute_quantization(samples, init_assignment_pts,
       #^ this algorithm provably reduces this cost or leaves it unchanged at
       #  each iteration so the boundedness of this cost means this is a
       #  valid stopping criterion
+    iter_idx += 1
 
-  return assignment_pts, cluster_assignments, MSE, shannon_entropy
+  print('Completed quantization in ', iter_idx, 'iterations')
+  return assignment_pts, cluster_assignments, MSE, shannon_entropy, cword_probs
 
 
 def quantize(raw_vals, assignment_vals, codeword_lengths,
@@ -186,14 +189,37 @@ def quantize(raw_vals, assignment_vals, codeword_lengths,
   # use a generalized cost function rather than the l2-norm-squared to assign
   # the partition. Therefore, we'll (for now) calculate the cost of assigning
   # each point to each interval and then just take the minimum.
+
   if raw_vals.ndim == 1:
     l2_distance = np.square(scipy_distance(raw_vals[:, None],
                             assignment_vals[:, None], metric='euclidean'))
+    assignment_cost = l2_distance + l_weight * codeword_lengths[None, :]
+    c_assignments = np.argmin(assignment_cost, axis=1)
   else:
-    l2_distance = np.square(scipy_distance(raw_vals,
-                            assignment_vals, metric='euclidean'))
-  assignment_cost = l2_distance + l_weight * codeword_lengths[None, :]
-  c_assignments = np.argmin(assignment_cost, axis=1)
+    if len(assignment_vals) * len(raw_vals) > 1e9:
+      # do this in chunks to avoid memory overflow
+      chunksize = 10000
+      num_chunks = raw_vals.shape[0] // chunksize
+      leftover = raw_vals.shape[0] - (chunksize * num_chunks)
+      c_assignments = np.zeros((raw_vals.shape[0], ), dtype='int')
+      for chunk_idx in range(num_chunks):
+        l2_distance = \
+          np.square(scipy_distance(
+            raw_vals[chunk_idx * chunksize : (chunk_idx + 1) * chunksize],
+            assignment_vals, metric='euclidean'))
+        assignment_cost = l2_distance + l_weight * codeword_lengths[None, :]
+        c_assignments[chunk_idx * chunksize : (chunk_idx + 1) * chunksize] = \
+            np.argmin(assignment_cost, axis=1)
+      if leftover > 0:
+        l2_distance = np.square(scipy_distance(
+          raw_vals[-leftover:, :], assignment_vals, metric='euclidean'))
+        assignment_cost = l2_distance + l_weight * codeword_lengths[None, :]
+        c_assignments[-leftover:] = np.argmin(assignment_cost, axis=1)
+    else:
+      l2_distance = np.square(scipy_distance(
+        raw_vals, assignment_vals, metric='euclidean'))
+      assignment_cost = l2_distance + l_weight * codeword_lengths[None, :]
+      c_assignments = np.argmin(assignment_cost, axis=1)
 
   if return_cluster_assignments:
     return assignment_vals[c_assignments], c_assignments
